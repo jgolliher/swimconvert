@@ -38,9 +38,9 @@ def download(filename):
 
 # Configure logging
 logging.basicConfig(
-    filename="app.log",
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s",
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.FileHandler("debug.log"), logging.StreamHandler()],
 )
 
 # Create the uploads and downloads folders if they don't exist
@@ -62,18 +62,18 @@ def index():
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-            app.logger.info("Saving uploaded file")
+            logging.info("Saving uploaded file")
             file.save(file_path)
             file.seek(0)
-            app.logger.info(f"Uploaded file saved to {file_path}")
+            logging.info(f"Uploaded file saved to {file_path}")
             try:
-                app.logger.info(f"Parsing file at {file_path}")
+                logging.info(f"Parsing file at {file_path}")
                 # Parse the .hy3 file
                 hy3_file = Hy3File(file_path)
 
                 # Get meet name
                 meet_name = hy3_file.meet_info.meet_name
-                app.logger.info(f"Meet name: {meet_name}")
+                logging.info(f"Meet name: {meet_name}")
 
                 app.logger.info("Converting results to DataFrames")
                 # Convert results to DataFrames
@@ -88,12 +88,12 @@ def index():
                 relay_csv_path = os.path.join(
                     app.config["DOWNLOAD_FOLDER"], "relay_results.csv"
                 )
-                app.logger.info(f"Saved individual resuls to {individual_csv_path}")
+                logging.info(f"Saved individual resuls to {individual_csv_path}")
 
                 individual_results_df.to_csv(individual_csv_path, index=False)
                 relay_results_df.to_csv(relay_csv_path, index=False)
 
-                app.logger.info("Downloading results")
+                logging.info("Downloading results")
                 # Return the first CSV - you might want to zip both files instead
                 # Create ZIP file containing both CSVs
                 memory_file = BytesIO()
@@ -107,6 +107,7 @@ def index():
                 # Remove individual CSV files after zipping
                 os.remove(individual_csv_path)
                 os.remove(relay_csv_path)
+                os.remove(file_path)
                 return send_file(
                     memory_file,
                     mimetype="application/zip",
@@ -114,10 +115,8 @@ def index():
                     download_name=f"{meet_name}_csv.zip",
                 )
 
-                # return download(filename="individual_results.csv")
-
             except Exception as e:
-                app.logger.error(f"Error processing file: {e}")
+                logging.error(f"Error processing file: {e}")
                 return f"Error processing file: {e}"
 
     return render_template("index.html")
